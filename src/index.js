@@ -44,51 +44,63 @@ function onBtnSubmit (e) {
     resetPage();
     refs.galleryContainer.innerHTML = '';
     refs.loadMoreBtn.classList.add('visually-hidden');
-    searchNameImg = e.currentTarget.elements.searchQuery.value;    
-    fetchImg(searchNameImg)
-        .then(({data}) => {
-            Notify.success(`Hooray! We found ${data.totalHits} images.`, { timeout: 4000, },);
-            restLoadImage = data.totalHits;
-            const arrayImg = data.hits;            
-            if (data.totalHits === 0) {
-                Notify.failure('Sorry, there are no images matching your search query. Please try again.', { timeout: 6000, },);
-            }
-
-            onMarkupImg(arrayImg);
-            onSimpleLightbox();
-            onScrollBy();
-            restLoadImage -= 40;
-
-            if (arrayImg.length === 40 && arrayImg.length < data.totalHits) {
-              refs.loadMoreBtn.classList.remove('visually-hidden');       
-            } else {
-              refs.loadMoreBtn.classList.add('visually-hidden');
-            }
-        });
-    refs.formImput.reset();                       
+    searchNameImg = e.currentTarget.elements.searchQuery.value.trim();
+    if (searchNameImg === '') {
+      Notify.failure("Sorry, you didn't enter anything!!!", { timeout: 4000, },);
+      refs.formImput.reset();
+      return;
+    }   
+    onFetchArrayImg(searchNameImg);
+    refs.formImput.reset();                          
 }
 
-function onLoadMoreImg () {
-  incrementPage();
+async function onFetchArrayImg (searchNameImg) {
+  try {
+    const fetchArrayImg = await fetchImg(searchNameImg);
+    const {data: {hits, totalHits}} = fetchArrayImg;
+    if (totalHits === 0) {
+      Notify.failure('Sorry, there are no images matching your search query. Please try again.', { timeout: 6000, },);
+      return;
+    }
+    Notify.success(`Hooray! We found ${totalHits} images.`, { timeout: 4000, },);
+    restLoadImage = totalHits;
+    onMarkupImg(hits);
+    onSimpleLightbox();
+    onScrollBy();
+    restLoadImage -= 40;
+    if (hits.length === 40 && hits.length < totalHits) {
+      refs.loadMoreBtn.classList.remove('visually-hidden');       
+    } else {
+      refs.loadMoreBtn.classList.add('visually-hidden');
+    }    
+  } catch (error) {
+    console.log(error);
+  }  
+}
 
-  fetchImg(searchNameImg)
-    .then(({data}) => {
-      onMarkupImg(data.hits);
-      onSimpleLightbox();
-    });  
-  if (restLoadImage <= 40) {
-    refs.loadMoreBtn.classList.add('visually-hidden');
-    Notify.info(
-      'Sorry, there are no images matching your search query. Please try again.', 
-      { 
-        timeout: 6000, 
-        position: 'center-bottom',
-        width: '320px',        
-      },      
-      );
-  }
-  onScrollBy();
-  restLoadImage -= 40;
+async function onLoadMoreImg () {
+  try {
+    incrementPage();
+    const fetchArrayImg = await fetchImg(searchNameImg);
+    const { data: {hits} } = fetchArrayImg;
+    onMarkupImg(hits);
+    onSimpleLightbox();
+    if (restLoadImage <= 40) {
+      refs.loadMoreBtn.classList.add('visually-hidden');
+      Notify.info(
+        "We're sorry, but you've reached the end of search results.", 
+        { 
+          timeout: 6000, 
+          position: 'center-bottom',
+          width: '320px',        
+        },      
+        );
+    }
+    onScrollByOnLoadMore();
+    restLoadImage -= 40;
+  } catch (error) {
+    console.log(error);
+  }  
 }
 
 function onMarkupImg(arrayImg) {
@@ -136,12 +148,19 @@ function onSimpleLightbox () {
 };
 
 function onScrollBy () {
+  window.scrollBy({
+    top: 0,
+    behavior: "smooth",
+  });
+}
+
+function onScrollByOnLoadMore () {
   const { height: cardHeight } = document
   .querySelector(".gallery")
   .firstElementChild.getBoundingClientRect();
 
-  window.scrollBy({
-    top: cardHeight * 2,
-    behavior: "smooth",
-  });
+window.scrollBy({
+  top: cardHeight * 2,
+  behavior: "smooth",
+});
 }
